@@ -30,6 +30,16 @@ The transport is already ready: `libudx`/`udx-native` support IPv6 sockets, and 
 | Connect path | `hyperdht/lib/connect.js` | `addresses6: []` hard-coded; holepunch, LAN shortcut, and relay logic operate on `addresses4` only. |
 | Bootstrap | hyperdht defaults | v4 listeners / A records only. |
 
+### 3.1 Prior internal effort (2022–2025)
+
+Holepunch already built most of the **connection-layer half** of this problem, and this proposal builds on it rather than duplicating it:
+
+- [libudx#111](https://github.com/holepunchto/libudx/pull/111) / [libudx#120](https://github.com/holepunchto/libudx/pull/120) — dual-stack sockets with automatic IPv4-mapped address translation; this behavior ships in udx today.
+- [hyperdht#93](https://github.com/holepunchto/hyperdht/pull/93) (merged, 2022) — "Lock down IP object shapes"; the DHT's internal shapes keep the two families separate. The `ipv6` codecs and `addresses6` field in `lib/messages.js` are residue of this effort, not merely reserved intent.
+- [hyperdht#101](https://github.com/holepunchto/hyperdht/pull/101) (draft 2022, **closed unmerged March 2025**) — "Implement IPv6 support for peer connections." Reviewed positively by @mafintosh at the time; narrowed by its author to *"only deals with exchanging IPv6 addresses between peers."*
+
+Net: **transport-level IPv6 exists; connection-level IPv6 was largely built but never merged; DHT-level IPv6 (routing tables, node IDs, closer-node gossip, announces, holepunch coordination) was explicitly out of scope of all prior work** — and is the substance of this proposal. Phase 2 below is in effect a revival of #101; Phases 1 and 3 cover the ground no prior effort attempted.
+
 ## 4. Design goals and non-goals
 
 **Goals**
@@ -96,7 +106,12 @@ id6 = blake2b(addr[0..8] ‖ port)     // first 64 bits only
 - Receivers can still validate: `validateId6(id, from)` masks `from.host` the same way.
 - Additionally, cap routing-table entries per /64 (e.g. 1) and per /48 (e.g. 8): the standard libtorrent-style hardening, cheap to enforce at insert time.
 
-Trade-off acknowledged: multiple honest nodes behind one /64 (a home LAN) collide on the ID-per-port space. That is exactly v4's NAT situation today, and the DHT already tolerates it.
+**Collisions, addressed head-on** (raised by early review): two honest hosts in the same /64 binding the *same* port derive identical IDs. In practice dht-rpc defaults to ephemeral ports, so this requires two same-/64 hosts pinning the same explicit port — rare but real. Two derivation options, both receiver-verifiable:
+
+- **Simple (as above):** `id6 = blake2b(prefix64 ‖ port)`. Collision-prone in the same-/64-same-port corner; attacker limited to ~2¹⁶ scattered, unchoosable keyspace positions per /64.
+- **BEP 42-style hybrid (preferred):** constrain only the top *k* bits of the ID by `blake2b(prefix64)`, let the node randomize the remaining bits; receivers verify the constrained bits only. **No honest collisions** (random suffix), still address-bound. Its classic weakness — unlimited IDs concentrated in one keyspace region — is neutralized here because the per-/64 / per-/48 routing-table caps (below) are the operative eclipse defense regardless of derivation; and unlike full-address hashing, the attacker still cannot *choose* their region, so closest-node capture of a specific target remains out of reach.
+
+Either way, cap routing-table entries per /64 and per /48 — the caps, not the hash, carry most of the security weight.
 
 RFC 4941 privacy addresses rotate; `IO` already watches interfaces (`udx.watchNetworkInterfaces()`), so on address change the v6 side re-derives its ID and rejoins, the same flow as today's v4 roaming/`resume()` path. Prefer stable (non-temporary) addresses when the interface exposes the distinction.
 
@@ -156,14 +171,16 @@ Each phase is an independent PR with tests; nothing depends on a network flag da
 
 ## 8. Open questions for maintainers
 
+0. What blocked [#101](https://github.com/holepunchto/hyperdht/pull/101) from merging — findings from the practical testing, shifted priorities, or design concerns? Whatever was learned there should be carried into this design.
 1. Is family-isolated (BEP 32-style) acceptable, or is there appetite for a unified table with family-tagged entries? (This draft argues isolation is strictly lower risk.)
-2. `id6` masking width: /64 as proposed, or /56 to further blunt prefix-rich attackers at the cost of home-LAN collisions?
+2. `id6` derivation: simple `hash(prefix64 ‖ port)` vs the BEP 42-style hybrid (§5.3, preferred — collision-free for honest nodes)? And masking width — /64, or /56 to further blunt prefix-rich attackers?
 3. Preference on capability echo vs. bumping `noisePayload.version` to 2 for the new fields?
 4. Bootstrap ops: willingness to add AAAA + v6 listeners once phases 1 and 2 land?
 5. Should `pear-runtime`/Pear platform expose family config, or inherit `dual` silently once stable?
 
 ## 9. Prior art
 
+- **Holepunch's own**: [hyperdht#101](https://github.com/holepunchto/hyperdht/pull/101), [hyperdht#93](https://github.com/holepunchto/hyperdht/pull/93), [libudx#111](https://github.com/holepunchto/libudx/pull/111)/[#120](https://github.com/holepunchto/libudx/pull/120) — see §3.1.
 - BitTorrent [BEP 32](https://www.bittorrent.org/beps/bep_0032.html) (IPv6 extension for DHT, family isolation) and [BEP 42](https://www.bittorrent.org/beps/bep_0042.html) (DHT security via IP-derived IDs, /64 masking for v6).
 - libjuice/ICE and RFC 8305 (Happy Eyeballs) for the family race.
 - libtorrent routing-table per-prefix caps.
