@@ -1,0 +1,62 @@
+name: harness
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  golden:
+    name: v4 golden pins / ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # implementation branches live on the fork; fall back to upstream main
+      - name: clone workbenches
+        run: |
+          git clone --depth 5 -b ipv6-phase1 https://github.com/AdebayoGit/dht-rpc upstream/dht-rpc \
+            || git clone --depth 5 https://github.com/holepunchto/dht-rpc upstream/dht-rpc
+          git clone --depth 5 -b ipv6-phase2 https://github.com/AdebayoGit/hyperdht upstream/hyperdht \
+            || git clone --depth 5 https://github.com/holepunchto/hyperdht upstream/hyperdht
+      - run: cd upstream/dht-rpc && npm install --no-audit --no-fund
+      - run: cd upstream/hyperdht && npm install --no-audit --no-fund
+      - run: npm install --no-audit --no-fund
+      - name: golden v4 pins (required)
+        run: npm run test:golden
+      - name: upstream dht-rpc suite (required, node runtime)
+        run: cd upstream/dht-rpc && npm run test:node
+
+  contracts:
+    name: phase contracts (informational until each phase lands)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: add ULA address for multi-address tests
+        run: sudo ip addr add fd00:1234::1/64 dev lo || true
+      - name: clone workbenches
+        run: |
+          git clone --depth 5 -b ipv6-phase1 https://github.com/AdebayoGit/dht-rpc upstream/dht-rpc \
+            || git clone --depth 5 https://github.com/holepunchto/dht-rpc upstream/dht-rpc
+          git clone --depth 5 -b ipv6-phase3 https://github.com/AdebayoGit/hyperdht upstream/hyperdht \
+            || git clone --depth 5 -b ipv6-phase2 https://github.com/AdebayoGit/hyperdht upstream/hyperdht \
+            || git clone --depth 5 https://github.com/holepunchto/hyperdht upstream/hyperdht
+      - run: cd upstream/dht-rpc && npm install --no-audit --no-fund
+      - run: cd upstream/hyperdht && npm install --no-audit --no-fund
+      - run: npm install --no-audit --no-fund
+      - name: phase suites
+        run: |
+          for d in test/phase*/; do
+            echo "== $d =="
+            npx brittle "$d"*.test.js || true
+          done
