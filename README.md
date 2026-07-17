@@ -29,12 +29,15 @@ npm run test:red     # Phase 1 contract (codecs, id6, caps, sockets, integration
 ## Status
 
 - [x] Design draft
-- [x] Phase 1 test contract + v4 golden regression pins ([test/phase1](./test/phase1), [VERIFICATION.md](./VERIFICATION.md))
+- [x] Test contracts + v4 golden regression pins ([test/](./test), [VERIFICATION.md](./VERIFICATION.md))
 - [ ] Maintainer feedback ([hyperdht#1](https://github.com/holepunchto/hyperdht/issues/1))
-- [ ] Phase 1: `dht-rpc` — v6 codecs, masked IDs, dual sockets, per-family tables
-- [ ] Phase 2: `hyperdht` — populate `addresses6`, capability echo, direct-connect race
-- [ ] Phase 3: `hyperdht` — v6 simultaneous-open, relay/announce fields
+- [x] Phase 1: `dht-rpc` — v6 codecs, masked IDs, dual sockets, per-family tables → [`AdebayoGit/dht-rpc#ipv6-phase1`](https://github.com/AdebayoGit/dht-rpc/tree/ipv6-phase1)
+- [x] Phase 2: `hyperdht` — populate `addresses6`, capability echo, direct-connect race → [`AdebayoGit/hyperdht#ipv6-phase2`](https://github.com/AdebayoGit/hyperdht/tree/ipv6-phase2)
+- [ ] Phase 3: `hyperdht` — v6 simultaneous-open, relay/announce fields (in progress)
 - [ ] Phase 4: `hyperswarm` surface, docs, bootstrap AAAA
+
+Ready-to-open PR descriptions live in [prs/](./prs); local mixed-family soak
+tooling in [scripts/testnet/](./scripts/testnet).
 
 ## Discussing
 
