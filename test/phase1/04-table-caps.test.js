@@ -22,8 +22,9 @@ function createV6 (opts = {}) {
 }
 
 function tableSize (table) {
+  // kademlia-routing-table's rows array is sparse — rows materialize lazily
   let n = 0
-  for (const row of table.rows) n += row.nodes.length
+  for (const row of table.rows) n += row ? row.nodes.length : 0
   return n
 }
 

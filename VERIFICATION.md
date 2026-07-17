@@ -83,7 +83,8 @@ responses, timeouts, retries, per-command tx/rx, plus `lib/health.js`
 ```js
 dht.stats.requests            // v4 (unchanged shape)
 dht.stats.requests6           // same shape, v6 sockets
-dht.health.byFamily()         // timeout rate per family
+// per-family timeout rates are derived from these counters
+// (see scripts/testnet/stats-logger.js)
 ```
 
 ### Implementation-quality metrics (harness / CI)

@@ -9,7 +9,10 @@
     "test:golden": "brittle test/phase1/01-v4-golden.test.js",
     "test:red": "brittle test/phase1/0[2-6]-*.test.js",
     "test:phase2": "brittle test/phase2/*.test.js",
-    "test:phase2:golden": "brittle test/phase2/01-noise-golden.test.js"
+    "test:phase2:golden": "brittle test/phase2/01-noise-golden.test.js",
+    "testnet:node": "node scripts/testnet/node.js",
+    "testnet:stats": "node scripts/testnet/stats-logger.js",
+    "soak": "node scripts/testnet/soak.js"
   },
   "devDependencies": {
     "b4a": "^1.6.1",
