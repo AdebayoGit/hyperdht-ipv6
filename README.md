@@ -33,8 +33,8 @@ npm run test:red     # Phase 1 contract (codecs, id6, caps, sockets, integration
 - [ ] Maintainer feedback ([hyperdht#1](https://github.com/holepunchto/hyperdht/issues/1))
 - [x] Phase 1: `dht-rpc` — v6 codecs, masked IDs, dual sockets, per-family tables → [`AdebayoGit/dht-rpc#ipv6-phase1`](https://github.com/AdebayoGit/dht-rpc/tree/ipv6-phase1)
 - [x] Phase 2: `hyperdht` — populate `addresses6`, capability echo, direct-connect race → [`AdebayoGit/hyperdht#ipv6-phase2`](https://github.com/AdebayoGit/hyperdht/tree/ipv6-phase2)
-- [ ] Phase 3: `hyperdht` — v6 simultaneous-open, relay/announce fields (in progress)
-- [ ] Phase 4: `hyperswarm` surface, docs, bootstrap AAAA
+- [x] Phase 3: `hyperdht` — v6 simultaneous-open, relay/announce fields, dual-DHT announces → [`AdebayoGit/hyperdht#ipv6-phase3`](https://github.com/AdebayoGit/hyperdht/tree/ipv6-phase3)
+- [x] Phase 4: `hyperswarm` — `families` surface + mixed-family swarm test → [`AdebayoGit/hyperswarm#ipv6-phase4`](https://github.com/AdebayoGit/hyperswarm/tree/ipv6-phase4); bootstrap AAAA is an ops handover ([docs/BOOTSTRAP-OPS.md](./docs/BOOTSTRAP-OPS.md)), default flip staged ([prs/PR-5](./prs/PR-5-default-flip.md))
 
 Ready-to-open PR descriptions live in [prs/](./prs); local mixed-family soak
 tooling in [scripts/testnet/](./scripts/testnet).

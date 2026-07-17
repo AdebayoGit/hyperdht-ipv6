@@ -161,4 +161,145 @@ test('unannounce clears the record on both DHTs', { timeout: 90000 }, async func
   t.is(found, null, 'v6 DHT record is gone after unannounce')
 })
 
+// --- PHASE 3 GAP (plain APIs) ---------------------------------------------
+// server.listen()'s Announcer fans out to both DHTs, but the plain
+// dht.announce()/lookup()/unannounce() APIs — the exact ones hyperswarm's
+// PeerDiscovery consumes — only ran on the node's own (v4) stack. On a dual
+// node they must be family-complete: announce() stores on both DHTs,
+// lookup() surfaces both families' records, unannounce() clears both.
+
+async function collectLookup (client, target) {
+  const seen = new Map()
+  const query = client.lookup(target)
+  for await (const data of query) {
+    for (const peer of data.peers) {
+      seen.set(b4a.toString(peer.publicKey, 'hex'), peer)
+    }
+  }
+  return seen
+}
+
+test('plain announce on a dual node is found by v4-only and v6-only lookups', { timeout: 90000 }, async function (t) {
+  const testnet = await createTestnet(3, {
+    teardown: t.teardown,
+    families: ['ipv4', 'ipv6'],
+    host6: '::1'
+  })
+  if (missing(t, testnet.nodes[0].address6, 'dht.address6() (createTestnet families support)')) return
+
+  const dual = testnet.createNode({ ephemeral: true, families: ['ipv4', 'ipv6'], host6: '::1' })
+  const keyPair = DHT.keyPair()
+  const target = DHT.hash(keyPair.publicKey)
+
+  // mixed-family relay addresses: each stored record must only carry its own
+  // family (a v6-only client cannot use a v4 relay address and vice versa)
+  const relayAddresses = [
+    { host: '127.0.0.1', port: 12345 },
+    { host: '::1', port: 12346 }
+  ]
+
+  await dual.announce(target, keyPair, relayAddresses).finished()
+
+  const v4client = testnet.createNode({ ephemeral: true })
+  const found4 = await withTimeout(findPeerInLookup(v4client, target, keyPair.publicKey), LOOKUP_TIMEOUT)
+  if (found4 === TIMEOUT) {
+    t.fail('v4-only lookup hung')
+    return
+  }
+  t.ok(found4, 'v4-only lookup finds the plain-announced record')
+  if (found4) {
+    t.ok(found4.relayAddresses.length > 0, 'v4 record kept the v4 relay address')
+    for (const addr of found4.relayAddresses) {
+      t.ok(addr.host.indexOf(':') === -1, 'v4 record only carries v4 relay addresses: ' + addr.host)
+    }
+  }
+
+  const v6client = testnet.createNode({ ephemeral: true, families: ['ipv6'], host6: '::1' })
+  const found6 = await withTimeout(findPeerInLookup(v6client, target, keyPair.publicKey), LOOKUP_TIMEOUT)
+  if (found6 === TIMEOUT) {
+    t.fail('v6-only lookup hung')
+    return
+  }
+  t.ok(found6, 'v6-only lookup finds the plain-announced record (v6 DHT leg ran)')
+  if (found6) {
+    t.ok(found6.relayAddresses.length > 0, 'v6 record kept the v6 relay address')
+    for (const addr of found6.relayAddresses) {
+      t.ok(addr.host.indexOf(':') > -1, 'v6 record only carries v6 relay addresses: ' + addr.host)
+    }
+  }
+})
+
+test('plain lookup on a dual node surfaces v4-only and v6-only announcers', { timeout: 90000 }, async function (t) {
+  const testnet = await createTestnet(3, {
+    teardown: t.teardown,
+    families: ['ipv4', 'ipv6'],
+    host6: '::1'
+  })
+  if (missing(t, testnet.nodes[0].address6, 'dht.address6() (createTestnet families support)')) return
+
+  const v4announcer = testnet.createNode({ ephemeral: true })
+  const v6announcer = testnet.createNode({ ephemeral: true, families: ['ipv6'], host6: '::1' })
+
+  const kp4 = DHT.keyPair()
+  const kp6 = DHT.keyPair()
+  const target = DHT.hash(kp4.publicKey)
+
+  await v4announcer.announce(target, kp4, []).finished()
+  await v6announcer.announce(target, kp6, []).finished()
+
+  const dual = testnet.createNode({ ephemeral: true, families: ['ipv4', 'ipv6'], host6: '::1' })
+
+  const seen = await withTimeout(collectLookup(dual, target), LOOKUP_TIMEOUT)
+  if (seen === TIMEOUT) {
+    t.fail('dual lookup hung')
+    return
+  }
+
+  t.ok(seen.has(b4a.toString(kp4.publicKey, 'hex')), 'dual lookup sees the record announced on the v4 DHT')
+  t.ok(seen.has(b4a.toString(kp6.publicKey, 'hex')), 'dual lookup sees the record announced on the v6 DHT')
+})
+
+test('plain unannounce on a dual node clears the record on both DHTs', { timeout: 90000 }, async function (t) {
+  const testnet = await createTestnet(3, {
+    teardown: t.teardown,
+    families: ['ipv4', 'ipv6'],
+    host6: '::1'
+  })
+  if (missing(t, testnet.nodes[0].address6, 'dht.address6() (createTestnet families support)')) return
+
+  const dual = testnet.createNode({ ephemeral: true, families: ['ipv4', 'ipv6'], host6: '::1' })
+  const keyPair = DHT.keyPair()
+  const target = DHT.hash(keyPair.publicKey)
+
+  await dual.announce(target, keyPair, []).finished()
+
+  const v4client = testnet.createNode({ ephemeral: true })
+  const v6client = testnet.createNode({ ephemeral: true, families: ['ipv6'], host6: '::1' })
+
+  const found4 = await withTimeout(findPeerInLookup(v4client, target, keyPair.publicKey), LOOKUP_TIMEOUT)
+  const found6 = await withTimeout(findPeerInLookup(v6client, target, keyPair.publicKey), LOOKUP_TIMEOUT)
+  if (found4 === TIMEOUT || found6 === TIMEOUT) {
+    t.fail('pre-unannounce lookup hung')
+    return
+  }
+  t.ok(found4, 'record stored on the v4 DHT before unannounce')
+  t.ok(found6, 'record stored on the v6 DHT before unannounce')
+
+  await dual.unannounce(target, keyPair)
+
+  const gone4 = await withTimeout(findPeerInLookup(v4client, target, keyPair.publicKey), LOOKUP_TIMEOUT)
+  if (gone4 === TIMEOUT) {
+    t.fail('v4 lookup after unannounce hung')
+    return
+  }
+  t.is(gone4, null, 'v4 DHT record is gone after plain unannounce')
+
+  const gone6 = await withTimeout(findPeerInLookup(v6client, target, keyPair.publicKey), LOOKUP_TIMEOUT)
+  if (gone6 === TIMEOUT) {
+    t.fail('v6 lookup after unannounce hung')
+    return
+  }
+  t.is(gone6, null, 'v6 DHT record is gone after plain unannounce')
+})
+
 function noop () {}

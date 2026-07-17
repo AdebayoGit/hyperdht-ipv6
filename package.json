@@ -12,6 +12,7 @@
     "test:phase2:golden": "brittle test/phase2/01-noise-golden.test.js",
     "test:phase3": "brittle test/phase3/*.test.js",
     "test:phase3:golden": "brittle test/phase3/01-wire-golden.test.js",
+    "test:phase4": "brittle test/phase4/*.test.js",
     "testnet:node": "node scripts/testnet/node.js",
     "testnet:stats": "node scripts/testnet/stats-logger.js",
     "soak": "node scripts/testnet/soak.js",

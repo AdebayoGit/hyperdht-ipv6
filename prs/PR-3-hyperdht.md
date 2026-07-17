@@ -33,7 +33,12 @@ answers on the socket family a request arrived on — no cross-family hops).
 Announces on the v6 DHT use symmetric v6 record encoding, verify against the
 storing node's family id, and live in a separate `records6` cache; **v4
 record bytes are byte-identical to today**. Dual-stack servers announce the
-same signed record on both DHTs.
+same signed record on both DHTs — both via the `server.listen()` announcer
+and via the plain `announce()`/`lookup()`/`unannounce()` APIs, which fan out
+through a merged dual-family query stream (`lib/dual-query.js`; one leg's
+failure never suppresses the other family's results). The plain-API path is
+what hyperswarm's topic discovery uses, and it's covered by its own contract
+cases after slipping past the first cut of this phase.
 
 ## Verification
 
