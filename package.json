@@ -1,0 +1,20 @@
+{
+  "name": "hyperdht-ipv6-harness",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Design + TDD test harness for IPv6 support in dht-rpc/hyperdht (Phase 1 targets upstream/dht-rpc)",
+  "scripts": {
+    "setup": "bash scripts/setup.sh",
+    "test": "brittle test/phase1/*.test.js",
+    "test:golden": "brittle test/phase1/01-v4-golden.test.js",
+    "test:red": "brittle test/phase1/0[2-6]-*.test.js"
+  },
+  "devDependencies": {
+    "b4a": "^1.6.1",
+    "brittle": "^3.0.0",
+    "compact-encoding": "^3.0.0",
+    "sodium-universal": "^5.0.0",
+    "udx-native": "^1.5.3"
+  },
+  "license": "Apache-2.0"
+}

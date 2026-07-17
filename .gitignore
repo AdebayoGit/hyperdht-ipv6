@@ -1,0 +1,4 @@
+node_modules/
+upstream/
+# paste source for the hyperdht#1 comment, not part of the published proposal
+ISSUE-COMMENT.md
